@@ -5,7 +5,6 @@ const puppeteer = require('puppeteer');
 const app = express();
 app.use(bodyParser.json());
 
-// Endpoint para login en SRI
 app.post('/login-sri', async (req, res) => {
     const { usuario, clave } = req.body;
 
@@ -19,9 +18,9 @@ app.post('/login-sri', async (req, res) => {
 
     let browser;
     try {
-        // Configuración de Puppeteer para Render.com
+        // Lanzar Puppeteer sin executablePath
         browser = await puppeteer.launch({
-            headless: true, // Modo headless para servidor
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -31,35 +30,28 @@ app.post('/login-sri', async (req, res) => {
                 '--no-zygote',
                 '--single-process',
                 '--disable-gpu'
-            ],
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath()
+            ]
         });
 
         const page = await browser.newPage();
-        
-        // Configurar el user-agent para parecer un navegador normal
+
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
-        // Paso 1: Ir a la página de login
         console.log("🚀 Cargando la página de login...");
         await page.goto("https://srienlinea.sri.gob.ec/sri-en-linea/contribuyente/perfil", {
             waitUntil: 'networkidle2',
             timeout: 60000
         });
 
-        // Esperar y escribir en el campo de usuario
         await page.waitForSelector("#usuario", { visible: true, timeout: 30000 });
         await page.type("#usuario", usuario, { delay: 100 });
 
-        // Esperar y escribir en el campo de contraseña
         await page.waitForSelector("#password", { visible: true, timeout: 30000 });
         await page.type("#password", clave, { delay: 100 });
 
-        // Hacer clic en el botón de login
         await page.click("#kc-login");
         console.log("✅ Botón de login clickeado");
 
-        // Esperar a que la navegación se complete
         try {
             await page.waitForNavigation({ 
                 waitUntil: "networkidle2",
@@ -69,15 +61,12 @@ app.post('/login-sri', async (req, res) => {
             console.log("⚠️ Tiempo de espera agotado, verificando estado actual...");
         }
 
-        // Verificar si el login fue exitoso
         const currentUrl = page.url();
         let loginExitoso = currentUrl.includes("perfil");
-        
-        // Tomar screenshot como evidencia (en base64 para no usar filesystem)
+
         const screenshotBuffer = await page.screenshot({ fullPage: true });
         const screenshotBase64 = screenshotBuffer.toString('base64');
 
-        // Cerrar el navegador
         await browser.close();
 
         if (loginExitoso) {
@@ -103,8 +92,7 @@ app.post('/login-sri', async (req, res) => {
 
     } catch (error) {
         console.error('Error durante la automatización:', error);
-        
-        // Tomar screenshot del error si el browser está disponible
+
         let screenshotBase64 = null;
         if (browser) {
             try {
@@ -128,7 +116,6 @@ app.post('/login-sri', async (req, res) => {
     }
 });
 
-// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`API de automatización SRI corriendo en http://localhost:${PORT}`);
