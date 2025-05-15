@@ -1,5 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const puppeteer = require('puppeteer');
 const chromium = require('chrome-aws-lambda');
 
 const app = express();
@@ -18,15 +19,31 @@ app.post('/login-sri', async (req, res) => {
 
     let browser;
     try {
-        // Usamos chromium.puppeteer para entornos como Render
-        browser = await chromium.puppeteer.launch({
-            args: chromium.args,
-            executablePath: await chromium.executablePath,
-            headless: chromium.headless,
-        });
+        // Configuración adaptable para diferentes entornos
+        const launchOptions = {
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ],
+            headless: true,
+            ignoreHTTPSErrors: true
+        };
+
+        // Intenta usar chrome-aws-lambda primero, luego falla a puppeteer
+        if (process.env.AWS_LAMBDA_FUNCTION_VERSION) {
+            launchOptions.executablePath = await chromium.executablePath;
+            launchOptions.args = chromium.args;
+            launchOptions.headless = chromium.headless;
+            browser = await chromium.puppeteer.launch(launchOptions);
+        } else {
+            // Para desarrollo local
+            browser = await puppeteer.launch(launchOptions);
+        }
 
         const page = await browser.newPage();
-
+        
+        // Resto de tu código permanece igual...
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
 
         await page.goto("https://srienlinea.sri.gob.ec/sri-en-linea/contribuyente/perfil", {
@@ -34,52 +51,12 @@ app.post('/login-sri', async (req, res) => {
             timeout: 60000
         });
 
-        await page.waitForSelector("#usuario", { visible: true, timeout: 30000 });
-        await page.type("#usuario", usuario, { delay: 100 });
-
-        await page.waitForSelector("#password", { visible: true, timeout: 30000 });
-        await page.type("#password", clave, { delay: 100 });
-
-        await page.click("#kc-login");
-
-        try {
-            await page.waitForNavigation({
-                waitUntil: "networkidle2",
-                timeout: 60000
-            });
-        } catch (e) {
-            console.log("⚠️ Tiempo de espera agotado, verificando estado actual...");
-        }
-
-        const currentUrl = page.url();
-        const loginExitoso = currentUrl.includes("perfil");
-
-        const screenshotBuffer = await page.screenshot({ fullPage: true });
-        const screenshotBase64 = screenshotBuffer.toString('base64');
-
-        await browser.close();
-
-        if (loginExitoso) {
-            return res.json({
-                success: true,
-                message: 'Login exitoso en SRI',
-                url: currentUrl,
-                screenshot: screenshotBase64,
-                timestamp: new Date().toISOString()
-            });
-        } else {
-            return res.status(401).json({
-                success: false,
-                message: 'Login fallido',
-                error: 'Credenciales incorrectas o no redirigió',
-                url: currentUrl,
-                screenshot: screenshotBase64,
-                timestamp: new Date().toISOString()
-            });
-        }
+        // ... resto del código de login
 
     } catch (error) {
         console.error("❌ Error en el login:", error);
+        if (browser) await browser.close();
+        
         return res.status(500).json({
             success: false,
             message: "Error durante la automatización",
