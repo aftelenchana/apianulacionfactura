@@ -1,6 +1,5 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const puppeteer = require('puppeteer-core');
 const chromium = require('chrome-aws-lambda');
 
 const app = express();
@@ -10,7 +9,7 @@ app.post('/login-sri', async (req, res) => {
     const { usuario, clave } = req.body;
 
     if (!usuario || !clave) {
-        return res.status(400).json({ 
+        return res.status(400).json({
             success: false,
             message: 'Se requieren usuario y clave',
             error: 'Faltan credenciales'
@@ -19,8 +18,8 @@ app.post('/login-sri', async (req, res) => {
 
     let browser;
     try {
-        // Usar chromium de chrome-aws-lambda
-        browser = await puppeteer.launch({
+        // Usamos chromium.puppeteer para entornos como Render
+        browser = await chromium.puppeteer.launch({
             args: chromium.args,
             executablePath: await chromium.executablePath,
             headless: chromium.headless,
@@ -44,7 +43,7 @@ app.post('/login-sri', async (req, res) => {
         await page.click("#kc-login");
 
         try {
-            await page.waitForNavigation({ 
+            await page.waitForNavigation({
                 waitUntil: "networkidle2",
                 timeout: 60000
             });
