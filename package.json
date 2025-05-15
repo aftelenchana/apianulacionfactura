@@ -9,6 +9,6 @@
     "body-parser": "^2.2.0",
     "express": "^5.1.0",
     "chrome-aws-lambda": "^10.1.0",
-    "puppeteer-core": "^10.4.0"
+    "puppeteer-core": "^10.1.0"
   }
 }
